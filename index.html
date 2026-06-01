@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Scanner & Video Player</title>
+    <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    
+    <style>
+        body { font-family: sans-serif; text-align: center; }
+        #video, #canvas { display: none; } /* Приховуємо технічні елементи */
+        #display-canvas { width: 100%; max-width: 600px; border: 2px solid #333; }
+        #video-container { margin-top: 20px; }
+        iframe { width: 100%; max-width: 600px; height: 340px; }
+    </style>
+</head>
+<body>
+
+    <h1>Сканування QR для відео</h1>
+    <canvas id="display-canvas"></canvas>
+    <div id="video-container"></div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const displayCanvas = document.getElementById("display-canvas");
+const ctx = canvas.getContext("2d");
+const dispCtx = displayCanvas.getContext("2d");
+
+let streaming = false;
+
+// 1. Запуск камери
+async function startCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = stream;
+    video.play();
+    streaming = true;
+    requestAnimationFrame(process);
+}
+
+// 2. Основний цикл обробки
+function process() {
+    if (!streaming) return;
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        displayCanvas.width = video.videoWidth;
+        displayCanvas.height = video.videoHeight;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Спроба розпізнати QR
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        // Малюємо поточне відео на екран
+        dispCtx.drawImage(video, 0, 0);
+
+        if (code) {
+            // Візуалізація знайденого коду
+            drawBox(code.location);
+            handleResult(code.data);
+        }
+    }
+    requestAnimationFrame(process);
+}
+
+// 3. Малювання рамки навколо QR
+function drawBox(location) {
+    dispCtx.beginPath();
+    dispCtx.lineWidth = 4;
+    dispCtx.strokeStyle = "#00FF00";
+    dispCtx.moveTo(location.topLeftCorner.x, location.topLeftCorner.y);
+    dispCtx.lineTo(location.topRightCorner.x, location.topRightCorner.y);
+    dispCtx.lineTo(location.bottomRightCorner.x, location.bottomRightCorner.y);
+    dispCtx.lineTo(location.bottomLeftCorner.x, location.bottomLeftCorner.y);
+    dispCtx.closePath();
+    dispCtx.stroke();
+}
+
+// 4. Обробка посилання
+function handleResult(url) {
+    if (url.includes("drive.google.com")) {
+        const regex = /\/d\/([a-zA-Z0-9_-]+)/;
+        const match = url.match(regex);
+        if (match) {
+            streaming = false; // Зупиняємо камеру
+            document.getElementById("video-container").innerHTML = `
+                <h3>Відео знайдено!</h3>
+                <iframe src="https://drive.google.com/file/d/${match[1]}/preview" allow="autoplay"></iframe>
+            `;
+        }
+    }
+}
+
+cv.onRuntimeInitialized = startCamera;
+</script>
+</body>
+</html>
