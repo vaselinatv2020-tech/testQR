@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QR Scanner</title>
+<title>QR MP4 Adaptive Player</title>
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
@@ -22,30 +22,30 @@ html, body {
 /* ===== TITLE ===== */
 h1 {
     position: absolute;
-    top: 18px;
+    top: 15px;
     width: 100%;
     text-align: center;
     color: white;
     font-weight: 400;
-    z-index: 10;
     font-size: 18px;
-    opacity: 0.85;
+    z-index: 10;
+    opacity: 0.8;
 }
 
 /* ===== BUTTON ===== */
 #startBtn {
     position: absolute;
-    bottom: 40px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    padding: 14px 26px;
+    padding: 14px 24px;
     font-size: 16px;
     border: none;
     border-radius: 14px;
     background: #1e88e5;
     color: white;
     z-index: 10;
-    box-shadow: 0 8px 20px rgba(30,136,229,0.4);
+    box-shadow: 0 8px 20px rgba(30,136,229,0.35);
 }
 
 /* ===== CAMERA ===== */
@@ -67,7 +67,7 @@ h1 {
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.60);
+    background: rgba(0,0,0,0.55);
 }
 
 /* скан-бокс */
@@ -80,42 +80,16 @@ h1 {
     transform: translate(-50%, -50%);
     border: 2px solid rgba(255,255,255,0.35);
     border-radius: 18px;
-    box-shadow: 0 0 25px rgba(30,136,229,0.25);
     overflow: hidden;
 }
 
-/* кутові рамки */
-.scan-box::before,
-.scan-box::after {
-    content: "";
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    border: 3px solid #1e88e5;
-}
-
-.scan-box::before {
-    top: -2px;
-    left: -2px;
-    border-right: none;
-    border-bottom: none;
-}
-
-.scan-box::after {
-    bottom: -2px;
-    right: -2px;
-    border-left: none;
-    border-top: none;
-}
-
-/* лінія сканування */
+/* скан лінія */
 .scan-line {
     position: absolute;
     width: 100%;
     height: 2px;
     background: #1e88e5;
     animation: scan 2s infinite;
-    opacity: 0.9;
 }
 
 @keyframes scan {
@@ -129,10 +103,7 @@ h1 {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
     background: black;
-    object-fit: cover;
 }
 
 canvas {
@@ -145,7 +116,6 @@ canvas {
 <body>
 
 <h1>QR Scanner</h1>
-
 <button id="startBtn">Почати сканування</button>
 
 <video id="video" autoplay playsinline></video>
@@ -162,9 +132,7 @@ canvas {
 const btn = document.getElementById("startBtn");
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d", {
-    willReadFrequently: true
-});
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
 let stream = null;
 let scanning = false;
@@ -173,15 +141,21 @@ btn.onclick = async () => {
 
     btn.style.display = "none";
 
-    stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-    });
+    try {
 
-    video.srcObject = stream;
-    await video.play();
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }
+        });
 
-    scanning = true;
-    requestAnimationFrame(scan);
+        video.srcObject = stream;
+        await video.play();
+
+        scanning = true;
+        requestAnimationFrame(scan);
+
+    } catch (err) {
+        alert("Камера не запустилась: " + err);
+    }
 };
 
 function scan() {
@@ -210,7 +184,9 @@ function scan() {
 
 function stopCamera() {
     scanning = false;
-    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+    }
 }
 
 function openVideo(url) {
@@ -222,11 +198,32 @@ function openVideo(url) {
     `;
 
     const player = document.getElementById("player");
+
     player.src = url;
+
+    player.onloadedmetadata = () => {
+
+        const isLandscape = player.videoWidth > player.videoHeight;
+
+        console.log("📐 Video:", player.videoWidth, player.videoHeight);
+
+        player.style.width = "100vw";
+        player.style.height = "100vh";
+
+        if (isLandscape) {
+            // горизонтальне → під ширину екрану
+            player.style.objectFit = "contain";
+        } else {
+            // вертикальне → fullscreen
+            player.style.objectFit = "cover";
+        }
+    };
 
     player.play().catch(()=>{});
 
-    player.onended = () => location.reload();
+    player.onended = () => {
+        location.reload();
+    };
 }
 
 </script>
